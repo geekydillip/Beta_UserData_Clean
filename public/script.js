@@ -108,11 +108,11 @@ function handleFileSelect(e) {
 
 function handleFile(file) {
     // Validate file type
-    const validTypes = ['.txt', '.md', '.json', '.csv', '.log'];
+    const validTypes = ['.txt', '.md', '.json', '.csv', '.log', '.xls', '.xlsx'];
     const fileExt = '.' + file.name.split('.').pop().toLowerCase();
-    
+
     if (!validTypes.includes(fileExt)) {
-        alert('Please upload a valid file type: .txt, .md, .json, .csv, or .log');
+        alert('Please upload a valid file type: .txt, .md, .json, .csv, .log, .xls, or .xlsx');
         return;
     }
 
@@ -129,14 +129,20 @@ function handleFile(file) {
     fileSize.textContent = formatFileSize(file.size);
     
     // Read and display file content
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const content = e.target.result;
-        fileContent.textContent = content.length > 500 ? content.substring(0, 500) + '...' : content;
+    if (fileExt === '.xls' || fileExt === '.xlsx') {
+        fileContent.textContent = 'Excel file - content will be extracted as CSV format for processing.';
         dropzone.style.display = 'none';
         filePreview.style.display = 'block';
-    };
-    reader.readAsText(file);
+    } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const content = e.target.result;
+            fileContent.textContent = content.length > 500 ? content.substring(0, 500) + '...' : content;
+            dropzone.style.display = 'none';
+            filePreview.style.display = 'block';
+        };
+        reader.readAsText(file);
+    }
 }
 
 function clearFile() {

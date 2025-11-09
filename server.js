@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const xlsx = require('xlsx');
 
 const app = express();
 const PORT = 3000;
@@ -81,7 +82,15 @@ app.post('/api/process', upload.single('file'), async (req, res) => {
     
     // Get input text from file or direct text input
     if (req.file) {
-      inputText = fs.readFileSync(req.file.path, 'utf-8');
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      if (ext === '.xlsx' || ext === '.xls') {
+        const workbook = xlsx.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        inputText = xlsx.utils.sheet_to_csv(worksheet);
+      } else {
+        inputText = fs.readFileSync(req.file.path, 'utf-8');
+      }
       // Clean up uploaded file after reading
       fs.unlinkSync(req.file.path);
     } else if (req.body.text) {
