@@ -1,0 +1,142 @@
+# Ollama AI Webpage
+
+A professional web interface for processing data locally with Ollama Qwen 3:8b model. Upload files or paste text to get AI-powered analysis, summaries, translations, and more - all processed locally on your machine.
+
+## 🚀 Features
+
+- **Professional UI**: Modern dark theme with responsive design
+- **File Upload**: Drag-and-drop support for text files (.txt, .md, .json, .csv, .log)
+- **Direct Text Input**: Paste text directly for processing
+- **Multiple Processing Options**:
+  - Summarize content
+  - Analyze and extract insights
+  - Extract key points
+  - Translate to English
+  - Generate Q&A pairs
+  - Custom prompts
+- **Results Management**: Copy to clipboard or download as text files
+- **Real-time Status**: Connection monitoring for Ollama
+- **Local Processing**: All data stays on your machine
+
+## 📋 Prerequisites
+
+- **Node.js** (v14 or higher)
+- **Ollama** with Qwen 3:8b model installed
+- **Web Browser** (Chrome, Firefox, Edge, etc.)
+
+## 🛠️ Installation
+
+1. **Clone or download this repository**
+2. **Navigate to the project directory**
+3. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+## 🚀 Usage
+
+1. **Start Ollama** with Qwen 3:8b model:
+   ```bash
+   ollama run qwen2.5:3b
+   ```
+
+2. **Start the web application**:
+   ```bash
+   npm start
+   ```
+
+3. **Open your browser** and go to: `http://localhost:3000`
+
+4. **Process your data**:
+   - Upload a text file using drag-and-drop
+   - Or paste text directly
+   - Select processing type
+   - Click "Process with AI"
+
+## 📁 Project Structure
+
+```
+ollama-ai-webpage/
+├── server.js              # Express backend server
+├── package.json           # Node.js dependencies
+├── README.md              # This file
+├── public/                # Frontend files
+│   ├── index.html         # Main HTML interface
+│   ├── styles.css         # Modern CSS styling
+│   └── script.js          # Frontend JavaScript logic
+└── uploads/               # Temporary file storage
+```
+
+## 🔧 Technical Details
+
+- **Backend**: Node.js + Express server
+- **Frontend**: Vanilla JavaScript, HTML5, CSS3
+- **File Handling**: Multer for secure uploads
+- **AI Integration**: Direct Ollama API calls (localhost:11434)
+- **Security**: CORS enabled, file validation, size limits
+
+## 🎯 Processing Options
+
+### Summarize
+Get concise summaries of your content.
+
+### Analyze
+Extract key insights and analysis from your data.
+
+### Extract
+Pull out important points and key information.
+
+### Translate
+Convert content to English (if not already in English).
+
+### Q&A
+Generate 5 important questions and provide answers based on your content.
+
+### Custom
+Enter your own custom prompt for flexible processing.
+
+## 🔒 Privacy & Security
+
+- **Local Processing**: All AI processing happens on your local machine
+- **No Data Transmission**: Files and text never leave your computer
+- **Temporary Storage**: Uploaded files are automatically cleaned up after processing
+- **File Validation**: Strict file type and size restrictions
+
+## 🐛 Troubleshooting
+
+### "Failed to connect to Ollama"
+- Ensure Ollama is running: `ollama serve`
+- Verify Qwen model is installed: `ollama pull qwen2.5:3b`
+- Check if Ollama is accessible on localhost:11434
+
+### "File upload failed"
+- Check file size (max 10MB)
+- Verify file type (.txt, .md, .json, .csv, .log only)
+- Ensure proper permissions
+
+### Server won't start
+- Install dependencies: `npm install`
+- Check Node.js version: `node --version`
+- Verify port 3000 is available
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+MIT License - feel free to use and modify as needed.
+
+## 🙏 Acknowledgments
+
+- **Ollama** for providing local AI capabilities
+- **Qwen** for the excellent language model
+- **Express.js** for the robust backend framework
+
+---
+
+**Note**: This application requires Ollama to be running locally. Make sure to start Ollama before using the web interface.
