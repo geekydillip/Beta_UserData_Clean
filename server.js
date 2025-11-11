@@ -7,7 +7,7 @@ const http = require('http');
 const xlsx = require('xlsx');
 
 const app = express();
-const PORT = 3000;
+const PORT = 3001;
 
 // Middleware
 app.use(cors());
@@ -31,13 +31,15 @@ const upload = multer({
 });
 
 // Helper function to call Ollama API
-async function callOllama(prompt, model = 'qwen3:latest') {
+async function callOllama(prompt, model = 'gemma3:4b') {
   return new Promise((resolve, reject) => {
-    const data = JSON.stringify({
+    const payload = {
       model: model,
       prompt: prompt,
       stream: false
-    });
+    };
+    const data = JSON.stringify(payload);
+    const byteLen = Buffer.byteLength(data, 'utf8');
 
     const options = {
       hostname: 'localhost',
@@ -45,38 +47,101 @@ async function callOllama(prompt, model = 'qwen3:latest') {
       path: '/api/generate',
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': data.length
-      }
+        'Content-Type': 'application/json; charset=utf-8',
+        'Accept': 'application/json',
+        'Content-Length': byteLen
+      },
+      timeout: 30000 // 30s timeout
     };
 
     const req = http.request(options, (res) => {
       let responseData = '';
+      res.setEncoding('utf8');
 
       res.on('data', (chunk) => {
         responseData += chunk;
       });
 
       res.on('end', () => {
+        // Log status for debugging
+        if (res.statusCode && res.statusCode >= 400) {
+          console.error(`Ollama returned HTTP ${res.statusCode}: ${responseData}`);
+        }
+
+        // Try to parse JSON, but provide fallback
         try {
           const jsonResponse = JSON.parse(responseData);
-          resolve(jsonResponse.response);
-        } catch (error) {
-          reject(new Error('Failed to parse Ollama response'));
+
+          // If Ollama returned an error object, reject with it
+          if (jsonResponse && jsonResponse.error) {
+            return reject(new Error(`Ollama error: ${jsonResponse.error}`));
+          }
+
+          // Some Ollama responses put the model reply under different keys,
+          // handle common shapes:
+          const reply = jsonResponse.response ?? jsonResponse.output ?? jsonResponse.result ?? responseData;
+          if (!reply || (typeof reply === 'string' && reply.trim().length === 0)) {
+            return reject(new Error('AI model returned empty response'));
+          }
+          resolve(reply);
+
+        } catch (parseErr) {
+          // Give rich debugging info
+          console.error('Failed to parse Ollama response. Raw response:', responseData);
+          return reject(new Error('Failed to parse Ollama response'));
         }
       });
+    });
+
+    req.on('timeout', () => {
+      req.destroy(new Error('Request to Ollama timed out'));
     });
 
     req.on('error', (error) => {
       reject(new Error('Failed to connect to Ollama: ' + error.message));
     });
 
-    req.write(data);
+    req.write(data, 'utf8');
     req.end();
   });
 }
 
-// Route: Upload and process file (streaming for Excel)
+// Route: Process text (JSON requests)
+app.post('/api/process/text', async (req, res) => {
+  try {
+    const processingType = req.body.processingType || 'custom';
+    const customPrompt = req.body.customPrompt || '';
+    const inputText = req.body.text;
+
+    if (!inputText) {
+      return res.status(400).json({ error: 'No text provided' });
+    }
+
+    let fullPrompt = '';
+    switch (processingType) {
+      case 'custom':
+        fullPrompt = `${customPrompt}\n\n${inputText}`;
+        break;
+      default:
+        fullPrompt = inputText;
+    }
+
+    const result = await callOllama(fullPrompt);
+    res.json({
+      success: true,
+      result: result,
+      inputLength: inputText.length
+    });
+
+  } catch (error) {
+    console.error('Error processing text:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to process text'
+    });
+  }
+});
+
+// Route: Upload and process file (multipart/form-data)
 app.post('/api/process', upload.single('file'), async (req, res) => {
   try {
     const processingType = req.body.processingType || 'custom';
@@ -108,32 +173,14 @@ app.post('/api/process', upload.single('file'), async (req, res) => {
           inputLength: inputText.length
         });
       }
-    } else if (req.body.text) {
-      const inputText = req.body.text;
-
-      let fullPrompt = '';
-      switch (processingType) {
-        case 'custom':
-          fullPrompt = `${customPrompt}\n\n${inputText}`;
-          break;
-        default:
-          fullPrompt = inputText;
-      }
-
-      const result = await callOllama(fullPrompt);
-      res.json({
-        success: true,
-        result: result,
-        inputLength: inputText.length
-      });
     } else {
-      return res.status(400).json({ error: 'No file or text provided' });
+      return res.status(400).json({ error: 'No file provided' });
     }
 
   } catch (error) {
-    console.error('Error processing request:', error);
+    console.error('Error processing file:', error);
     res.status(500).json({
-      error: error.message || 'Failed to process data'
+      error: error.message || 'Failed to process file'
     });
   }
 });
@@ -155,19 +202,57 @@ async function processExcel(req, res) {
 
     let modelPrompt = '';
     if (processingType === 'voc') {
-      modelPrompt = `You are a data-cleaning assistant for Problem analysis reported by Customer.
-You will be given a JSON array of rows. Each row has fields "Title" and "Problem" (and may include Case Code or Model No.).
-For each row produce an object with exactly these keys: "Module", "Summarized Problem", "Severity".
-- Remove ALL tokens inside square brackets [] before summarizing.
-- Translate non-English text to English.
-- Summarized Problem must be one concise English sentence merging Title and Problem.
-- Severity must be one of: Critical, High, Medium, Low.
+      modelPrompt = `You are a data-cleaning assistant for Voice of Problem analysis reported by Customer.
+Your goal is to process each row of customer feedback data and produce a cleaned, summarized problem statement for product analysis.
 
-Rules:
-1) Return ONLY a single valid JSON array of objects in the same order as input.
-2) Each object must contain EXACT keys: "Module", "Summarized Problem", "Severity".
-3) No commentary or extra fields.
-4) Output excel file's column sequence sould be "Case Code", "Model NO.", "Title", "Problem", "Module", "Summarized Problem", "Severity".
+Task
+For each row in the input data:
+Combine and clean the Title and Problem fields to create one clear, concise English sentence that describes the actual user issue.
+Identify the product module or area the issue belongs to (e.g., “Lock Screen”, “Camera”, “Battery”, “Network”, “Settings”).
+Determine the severity of the issue based on user impact. Calculate the severity by analyzing the Context of the problem.
+
+Rules
+Ignore any IDs, usernames, timestamps, or tags enclosed in square brackets [ ... ] (e.g., [Samsung Members][AppName: Samsung Members]).
+Merge logically — don’t repeat words or phrases unnecessarily.
+Use one complete sentence in the “Summarized Problem” field.
+Avoid internal notes or diagnostic language (e.g., “log 부족” or “H/W check required”).
+Always output valid, strict JSON that can be parsed directly.
+
+Severity Guidelines
+Choose the severity level that best reflects the user impact:
+Critical → Device unusable, data loss, or crash.
+High → Major feature not working as expected.
+Medium → Partial malfunction or intermittent issue.
+Low → Minor, cosmetic, or suggestion-level issue.
+
+Expected Output Format
+Return only a single JSON array where each object includes exactly these keys:
+
+[
+  {
+    "Module": "Lock Screen",
+    "Summarized Problem": "The Sports option from Google is unavailable on the Lock Screen of the Galaxy S24 Ultra.",
+    "Severity": "Medium"
+  }
+]
+
+Example Input
+[
+  {
+    "Title": "[Samsung Members][64338785][AppName: Samsung Members][Lock Screen] Sports from Google option is not available in S24 ultra",
+    "Problem": "Sports from Google option is not available in S24 ultra: [Samsung Members Notice] Log가 부족하거나 H/W 점검이 필요하다고 판단된 경우 분석 결과와 함께 필요한 정보를 기재하여 Resolve 바랍니다."
+  }
+]
+
+Output Requirements
+
+Output only the JSON array (no explanations, commentary, or extra text).
+The JSON must be valid and properly structured.
+Srtictly follow this output JSON format after merged into Excel, the resulting file must contain the following columns in this exact sequence:
+Case Code, Model No., Title, Problem, Module, Summarized Problem, Severity
+Each object should correspond to one input row, preserving the order.
+Final Output Columns
+
 
 Input:
 ${JSON.stringify(rows, null, 2)}
@@ -182,13 +267,24 @@ Return only the JSON array.`;
 
     // Parse AI response back to JSON
     let modelText = modelResult.trim();
+    if (!modelText) {
+      throw new Error('AI model returned empty response');
+    }
     const firstBracket = modelText.indexOf('[');
     const lastBracket = modelText.lastIndexOf(']');
     if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
       modelText = modelText.substring(firstBracket, lastBracket + 1);
+    } else {
+      throw new Error('AI response does not contain a valid JSON array');
     }
 
-    const parsed = JSON.parse(modelText);
+    let parsed;
+    try {
+      parsed = JSON.parse(modelText);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', modelText);
+      throw new Error('AI response is not valid JSON: ' + parseError.message);
+    }
 
     // Merge original data with AI results
     const merged = rows.map((r, i) => {
@@ -231,13 +327,34 @@ Return only the JSON array.`;
 
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', ollama: 'connected' });
+app.get('/api/health', async (req, res) => {
+  try {
+    // Check if Ollama is running
+    const response = await new Promise((resolve, reject) => {
+      const req = http.get('http://localhost:11434/', (res) => {
+        resolve(res.statusCode === 200);
+      });
+
+      req.on('error', () => resolve(false));
+      req.setTimeout(5000, () => {
+        req.destroy();
+        resolve(false);
+      });
+    });
+
+    if (response) {
+      res.json({ status: 'ok', ollama: 'connected' });
+    } else {
+      res.json({ status: 'ok', ollama: 'disconnected' });
+    }
+  } catch (error) {
+    res.json({ status: 'ok', ollama: 'disconnected' });
+  }
 });
 
 // Start server
 app.listen(PORT, () => {
   console.log(`\n🚀 Ollama Web Processor is running!`);
   console.log(`📍 Open your browser and go to: http://localhost:${PORT}`);
-  console.log(`🤖 Make sure Ollama is running with qwen3:latest model\n`);
+  console.log(`🤖 Make sure Ollama is running with gemma3:4b model\n`);
 });

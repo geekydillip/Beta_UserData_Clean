@@ -1,6 +1,6 @@
 # Ollama Web Processor
 
-A professional web interface for processing data locally with Ollama qwen2.5:3b model. Upload files or paste text to get AI-powered analysis, summaries, translations, and more - all processed locally on your machine.
+A professional web interface for processing data locally with Ollama qwen3:4b model. Upload files or paste text to get AI-powered analysis, summaries, translations, and more - all processed locally on your machine.
 
 ## 🚀 Features
 
@@ -21,7 +21,7 @@ A professional web interface for processing data locally with Ollama qwen2.5:3b 
 ## 📋 Prerequisites
 
 - **Node.js** (v14 or higher)
-- **Ollama** with qwen2.5:3b model installed
+- **Ollama** with qwen3:4b model installed
 - **Web Browser** (Chrome, Firefox, Edge, etc.)
 
 ## 🛠️ Installation
@@ -35,9 +35,9 @@ A professional web interface for processing data locally with Ollama qwen2.5:3b 
 
 ## 🚀 Usage
 
-1. **Start Ollama** with qwen2.5:3b model:
+1. **Start Ollama** with qwen3:4b model:
    ```bash
-   ollama run qwen2.5:3b
+   ollama run qwen3:4b
    ```
 
 2. **Start the web application**:
@@ -45,7 +45,7 @@ A professional web interface for processing data locally with Ollama qwen2.5:3b 
    npm start
    ```
 
-3. **Open your browser** and go to: `http://localhost:3000`
+3. **Open your browser** and go to: `http://localhost:3001`
 
 4. **Process your data**:
    - Upload a file (text or Excel) using drag-and-drop
@@ -106,7 +106,7 @@ Enter your own custom prompt for flexible processing.
 
 ### "Failed to connect to Ollama"
 - Ensure Ollama is running: `ollama serve`
-- Verify Qwen model is installed: `ollama pull qwen2.5:3b`
+- Verify Qwen model is installed: `ollama pull qwen3:4b`
 - Check if Ollama is accessible on localhost:11434
 
 ### "File upload failed"
@@ -117,7 +117,7 @@ Enter your own custom prompt for flexible processing.
 ### Server won't start
 - Install dependencies: `npm install`
 - Check Node.js version: `node --version`
-- Verify port 3000 is available
+- Verify port 3001 is available
 
 ## 🤝 Contributing
 

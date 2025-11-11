@@ -189,7 +189,7 @@ async function handleProcess() {
 
     } catch (error) {
         console.error('Processing error:', error);
-        alert('Error: ' + error.message + '\n\nMake sure Ollama is running with the qwen3:latest model.');
+        alert('Error: ' + error.message + '\n\nMake sure Ollama is running with the gemma3:4b model.');
     } finally {
         hideLoading();
         progressContainer.style.display = 'none';
@@ -280,8 +280,8 @@ async function checkOllamaConnection() {
     try {
         const response = await fetch('/api/health');
         const data = await response.json();
-        
-        if (data.status === 'ok') {
+
+        if (data.ollama === 'connected') {
             updateStatus('connected', 'Ollama Connected');
         } else {
             updateStatus('error', 'Ollama Disconnected');
@@ -289,7 +289,7 @@ async function checkOllamaConnection() {
     } catch (error) {
         updateStatus('error', 'Ollama Not Running');
     }
-    
+
     // Check again every 30 seconds
     setTimeout(checkOllamaConnection, 30000);
 }
