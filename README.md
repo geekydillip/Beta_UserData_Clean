@@ -1,6 +1,6 @@
 # Ollama Web Processor
 
-A professional web interface for processing data locally with Ollama qwen3:4b model. Upload files or paste text to get AI-powered analysis, summaries, translations, and more - all processed locally on your machine.
+A professional web interface for processing data locally with Ollama gemma3:4b model. Upload files or paste text to get AI-powered analysis, summaries, translations, and more - all processed locally on your machine.
 
 ## 🚀 Features
 
@@ -20,8 +20,8 @@ A professional web interface for processing data locally with Ollama qwen3:4b mo
 
 ## 📋 Prerequisites
 
-- **Node.js** (v14 or higher)
-- **Ollama** with qwen3:4b model installed
+- **Node.js** (v14 or higher) or **Python 3** (for automated setup)
+- **Ollama** with gemma3:4b model installed
 - **Web Browser** (Chrome, Firefox, Edge, etc.)
 
 ## 🛠️ Installation
@@ -35,9 +35,11 @@ A professional web interface for processing data locally with Ollama qwen3:4b mo
 
 ## 🚀 Usage
 
-1. **Start Ollama** with qwen3:4b model:
+### Option 1: Manual Setup (Node.js)
+
+1. **Start Ollama** with gemma3:4b model:
    ```bash
-   ollama run qwen3:4b
+   ollama run gemma3:4b
    ```
 
 2. **Start the web application**:
@@ -47,24 +49,39 @@ A professional web interface for processing data locally with Ollama qwen3:4b mo
 
 3. **Open your browser** and go to: `http://localhost:3001`
 
-4. **Process your data**:
-   - Upload a file (text or Excel) using drag-and-drop
-   - Or paste text directly
-   - Select processing type
-   - Click "Process with AI"
+### Option 2: Automated Setup (Python)
+
+1. **Run the Python script** (automatically handles Ollama and server startup):
+   ```bash
+   python run_server.py
+   ```
+
+2. **Open your browser** and go to: `http://localhost:3001`
+
+### Processing Data
+
+- Upload a file (text or Excel) using drag-and-drop
+- Or paste text directly
+- Select processing type
+- Click "Process with AI"
 
 ## 📁 Project Structure
 
 ```
 ollama-web-processor/
 ├── server.js              # Express backend server
+├── server_Stable.js       # Stable version of the server
+├── server.js.bak          # Backup of server.js
+├── run_server.py         # Python script for automated setup
+├── terminate_servers.py   # Python script to stop servers
 ├── package.json           # Node.js dependencies
 ├── README.md              # This file
 ├── public/                # Frontend files
 │   ├── index.html         # Main HTML interface
 │   ├── styles.css         # Modern CSS styling
 │   └── script.js          # Frontend JavaScript logic
-└── uploads/               # Temporary file storage
+├── uploads/               # Temporary file storage
+└── downloads/             # Processed file storage
 ```
 
 ## 🔧 Technical Details
@@ -106,7 +123,7 @@ Enter your own custom prompt for flexible processing.
 
 ### "Failed to connect to Ollama"
 - Ensure Ollama is running: `ollama serve`
-- Verify Qwen model is installed: `ollama pull qwen3:4b`
+- Verify Gemma model is installed: `ollama pull gemma3:4b`
 - Check if Ollama is accessible on localhost:11434
 
 ### "File upload failed"
@@ -134,7 +151,7 @@ MIT License - feel free to use and modify as needed.
 ## 🙏 Acknowledgments
 
 - **Ollama** for providing local AI capabilities
-- **Qwen** for the excellent language model
+- **Gemma** for the excellent language model
 - **Express.js** for the robust backend framework
 
 ---
