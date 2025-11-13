@@ -14,6 +14,7 @@ const statusElement = document.getElementById('status');
 const progressContainer = document.getElementById('progressContainer');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
+const modelSelect = document.getElementById('modelSelect');
 
 // State
 let currentFile = null;
@@ -22,6 +23,7 @@ let currentResult = '';
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
+    loadModels();
     checkOllamaConnection();
 });
 
@@ -40,6 +42,9 @@ function setupEventListeners() {
     document.querySelectorAll('input[name="processingType"]').forEach(radio => {
         radio.addEventListener('change', handleProcessingTypeChange);
     });
+
+    // Model change
+    modelSelect.addEventListener('change', handleModelChange);
 
     // Process button
     processBtn.addEventListener('click', handleProcess);
@@ -138,15 +143,35 @@ function handleProcessingTypeChange(e) {
     }
 }
 
+async function handleModelChange(e) {
+    const selectedModel = e.target.value;
+    console.log('Model changed to:', selectedModel);
+
+    // Check Ollama connection with the selected model
+    try {
+        const response = await fetch('/api/health');
+        const data = await response.json();
+
+        if (data.ollama === 'connected') {
+            updateStatus('connected', `Ollama Connected - ${selectedModel} ready`);
+        } else {
+            updateStatus('error', `Ollama Disconnected - ${selectedModel} unavailable`);
+        }
+    } catch (error) {
+        updateStatus('error', `Connection check failed - ${selectedModel}`);
+    }
+}
+
 async function handleProcess() {
     if (!currentFile) {
         alert('Please upload a file first');
         return;
     }
 
-    // Get processing type
+    // Get processing type and model
     const processingType = document.querySelector('input[name="processingType"]:checked').value;
     const customPromptValue = customPromptInput.value;
+    const selectedModel = modelSelect.value;
 
     // Validate custom prompt
     if (processingType === 'custom' && !customPromptValue.trim()) {
@@ -159,14 +184,15 @@ async function handleProcess() {
             // Handle Excel processing - show simple progress bar
             progressContainer.style.display = 'block';
             updateProgress(0, 'Initializing...');
-            await processExcelFile(currentFile, processingType, customPromptValue);
+            await processExcelFile(currentFile, processingType, customPromptValue, selectedModel);
         } else {
             // Process other files - show loading overlay
-            showLoading();
+            showLoading(selectedModel);
             const formData = new FormData();
             formData.append('file', currentFile);
             formData.append('processingType', processingType);
             formData.append('customPrompt', customPromptValue);
+            formData.append('model', selectedModel);
 
             const response = await fetch('/api/process', {
                 method: 'POST',
@@ -189,14 +215,14 @@ async function handleProcess() {
 
     } catch (error) {
         console.error('Processing error:', error);
-        alert('Error: ' + error.message + '\n\nMake sure Ollama is running with the gemma3:4b model.');
+        alert('Error: ' + error.message + '\n\nMake sure Ollama is running with the selected model.');
     } finally {
         hideLoading();
         progressContainer.style.display = 'none';
     }
 }
 
-async function processExcelFile(file, processingType, customPrompt) {
+async function processExcelFile(file, processingType, customPrompt, model) {
     return new Promise(async (resolve, reject) => {
         try {
             // Show simple progress steps
@@ -208,6 +234,7 @@ async function processExcelFile(file, processingType, customPrompt) {
             formData.append('file', file);
             formData.append('processingType', processingType);
             formData.append('customPrompt', customPrompt);
+            formData.append('model', model);
 
             const response = await fetch('/api/process', {
                 method: 'POST',
@@ -266,7 +293,9 @@ function downloadText(text, filename) {
     URL.revokeObjectURL(url);
 }
 
-function showLoading() {
+function showLoading(model) {
+    const loadingText = loadingOverlay.querySelector('p');
+    loadingText.textContent = `Processing with ${model}...`;
     loadingOverlay.style.display = 'flex';
     processBtn.disabled = true;
 }
@@ -297,6 +326,34 @@ async function checkOllamaConnection() {
 function updateStatus(status, text) {
     statusElement.className = 'status ' + status;
     statusElement.querySelector('.status-text').textContent = text;
+}
+
+async function loadModels() {
+    try {
+        const response = await fetch('/api/models');
+        const data = await response.json();
+
+        if (data.success && data.models.length > 0) {
+            modelSelect.innerHTML = '';
+            data.models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                modelSelect.appendChild(option);
+            });
+
+            // Default to gemma3:4b if available, else first model
+            const defaultModel = data.models.includes('gemma3:4b') ? 'gemma3:4b' : data.models[0];
+            modelSelect.value = defaultModel;
+        } else {
+            // Fallback
+            modelSelect.innerHTML = '<option value="gemma3:4b">gemma3:4b</option>';
+        }
+    } catch (error) {
+        console.error('Error loading models:', error);
+        // Fallback
+        modelSelect.innerHTML = '<option value="gemma3:4b">gemma3:4b</option>';
+    }
 }
 
 // Keyboard shortcuts

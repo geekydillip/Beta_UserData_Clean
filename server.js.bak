@@ -114,7 +114,6 @@ app.post('/api/process/text', async (req, res) => {
     const processingType = req.body.processingType || 'custom';
     const customPrompt = req.body.customPrompt || '';
     const inputText = req.body.text;
-    const model = req.body.model || 'gemma3:4b';
 
     if (!inputText) {
       return res.status(400).json({ error: 'No text provided' });
@@ -129,7 +128,7 @@ app.post('/api/process/text', async (req, res) => {
         fullPrompt = inputText;
     }
 
-    const result = await callOllama(fullPrompt, model);
+    const result = await callOllama(fullPrompt);
     res.json({
       success: true,
       result: result,
@@ -149,7 +148,6 @@ app.post('/api/process', upload.single('file'), async (req, res) => {
   try {
     const processingType = req.body.processingType || 'custom';
     const customPrompt = req.body.customPrompt || '';
-    const model = req.body.model || 'gemma3:4b';
 
     if (req.file) {
       const ext = path.extname(req.file.originalname).toLowerCase();
@@ -170,7 +168,7 @@ app.post('/api/process', upload.single('file'), async (req, res) => {
             fullPrompt = inputText;
         }
 
-        const result = await callOllama(fullPrompt, model);
+        const result = await callOllama(fullPrompt);
         res.json({
           success: true,
           result: result,
@@ -203,103 +201,59 @@ async function processExcel(req, res) {
 
     const processingType = req.body.processingType || 'custom';
     const customPrompt = req.body.customPrompt || '';
-    const model = req.body.model || 'gemma3:4b';
 
     let modelPrompt = '';
     if (processingType === 'voc') {
-      modelPrompt = `You are a data-cleaning assistant for Voice of Problem analysis reported by customers.
-Your goal is to process each row of customer feedback data, extract meaningful insights, and generate structured outputs for Excel.
+      modelPrompt = `You are a data-cleaning assistant for Voice of Problem analysis reported by Customer.
+Your goal is to process each row of customer feedback data and produce a cleaned, summarized problem statement for product analysis.
 
-
+Task
 For each row in the input data:
+Combine and clean the Title and Problem fields to create one clear, concise English sentence that describes the actual user issue.
+Identify the product module or area the issue belongs to (e.g., “Lock Screen”, “Camera”, “Battery”, “Network”, “Settings”).
+Determine the severity of the issue based on user impact. Calculate the severity by analyzing the Context of the problem.
 
-Merge & Clean
-Combine and clean the Title and Problem fields into one single clear English sentence that accurately describes the real user issue.
+Rules
+Ignore any IDs, usernames, timestamps, or tags enclosed in square brackets [ ... ] (e.g., [Samsung Members][AppName: Samsung Members]).
+Merge logically — don’t repeat words or phrases unnecessarily.
+Use one complete sentence in the “Summarized Problem” field.
+Avoid internal notes or diagnostic language (e.g., “log 부족” or “H/W check required”).
+Always output valid, strict JSON that can be parsed directly.
 
-Module Identification
-Identify the correct product module or functional area the issue belongs to
-(e.g., Lock Screen, Camera, Battery, Network, Settings, Display, App Permissions, etc.).
+Severity Guidelines
+Choose the severity level that best reflects the user impact:
+Critical → Device unusable, data loss, or crash.
+High → Major feature not working as expected.
+Medium → Partial malfunction or intermittent issue.
+Low → Minor, cosmetic, or suggestion-level issue.
 
-Severity Classification
-Determine severity based on user impact, using the rules below.
+Expected Output Format
+Return only a single JSON array where each object includes exactly these keys:
 
-Severity Reason
-Provide 1 concise sentence explaining why the chosen severity applies
-(e.g., “Major feature not working”, “Cosmetic issue only”, “Device freeze causing usability problems”, etc.).
-
-Output JSON Object
-For each row, produce one JSON object containing EXACTLY these keys in this order:
-
-Case Code,
-Model No.,
-Title,
-Problem,
-Module,
-Summarized Problem,
-Severity,
-Severity Reason
-
-📌 Rules
-Text Cleaning Rules
-
-Remove IDs, usernames, timestamps, tags or anything inside [ ... ].
-Example: [Samsung Members][AppName: Samsung Members] → ignored
-
-Translate non-English text to English.
-Avoid duplication when merging Title + Problem.
-Avoid internal diagnostic notes (e.g., “log 부족”, “H/W check needed”).
-Output one complete sentence for Summarized Problem.
-
-📌 Severity Guidelines
-
-Choose the severity that best reflects real customer impact:
-
-Severity	When to Use
-Critical	Device unusable, boot failure, data loss, crashes, freezing.
-High	Major feature not working (e.g., Camera fails, Wi-Fi not connecting).
-Medium	Partial malfunction, occasional failure, degraded experience.
-Low	Minor UI issue, cosmetic problem, suggestion or enhancement request.
-
-📌 Output Format Requirements
-
-Return a single JSON array.
-No explanations outside the JSON.
-The JSON must be valid and strictly parseable.
-Each output object must preserve the input order.
-Output must match this structural sequence:
-
-Case Code,
-Model No.,
-Title,
-Problem,
-Module,
-Summarized Problem,
-Severity,
-Severity Reason
-
-📌 Example Input
 [
   {
-    "Case Code": "C-001",
-    "Model No.": "Galaxy S24U",
+    "Module": "Lock Screen",
+    "Summarized Problem": "The Sports option from Google is unavailable on the Lock Screen of the Galaxy S24 Ultra.",
+    "Severity": "Medium"
+  }
+]
+
+Example Input
+[
+  {
     "Title": "[Samsung Members][64338785][AppName: Samsung Members][Lock Screen] Sports from Google option is not available in S24 ultra",
     "Problem": "Sports from Google option is not available in S24 ultra: [Samsung Members Notice] Log가 부족하거나 H/W 점검이 필요하다고 판단된 경우 분석 결과와 함께 필요한 정보를 기재하여 Resolve 바랍니다."
   }
 ]
 
-📌 Example Output
-[
-  {
-    "Case Code": "C-001",
-    "Model No.": "Galaxy S24U",
-    "Title": "Sports from Google option is not available in S24 ultra",
-    "Problem": "Sports from Google option is not available in S24 ultra: Log가 부족하거나 H/W 점검이 필요하다고 판단된 경우 분석 결과와 함께 필요한 정보를 기재하여 Resolve 바랍니다.",
-    "Module": "Lock Screen",
-    "Summarized Problem": "The Google Sports option is missing from the Lock Screen on the Galaxy S24 Ultra.",
-    "Severity": "Medium",
-    "Severity Reason": "A Lock Screen feature is missing, causing partial functionality loss but not affecting core device operation."
-  }
-]
+Output Requirements
+
+Output only the JSON array (no explanations, commentary, or extra text).
+The JSON must be valid and properly structured.
+Srtictly follow this output JSON format after merged into Excel, the resulting file must contain the following columns in this exact sequence:
+Case Code, Model No., Title, Problem, Module, Summarized Problem, Severity
+Each object should correspond to one input row, preserving the order.
+Final Output Columns
 
 
 Input:
@@ -311,7 +265,7 @@ Return only the JSON array.`;
     }
 
     // Send to AI model
-    const modelResult = await callOllama(modelPrompt, model);
+    const modelResult = await callOllama(modelPrompt);
 
     // Parse AI response back to JSON
     let modelText = modelResult.trim();
@@ -334,8 +288,16 @@ Return only the JSON array.`;
       throw new Error('AI response is not valid JSON: ' + parseError.message);
     }
 
-    // Use AI processed results directly (AI now returns complete rows)
-    const merged = parsed;
+    // Merge original data with AI results
+    const merged = rows.map((r, i) => {
+      const ai = parsed[i] || {};
+      return {
+        ...r,
+        Module: ai.Module || '',
+        'Summarized Problem': ai['Summarized Problem'] || ai.SummarizedProblem || '',
+        Severity: ai.Severity || ''
+      };
+    });
 
     // Convert merged JSON back to Excel
     const newWb = xlsx.utils.book_new();
@@ -365,42 +327,6 @@ Return only the JSON array.`;
 }
 
 
-
-// Models endpoint
-app.get('/api/models', async (req, res) => {
-  try {
-    const response = await new Promise((resolve, reject) => {
-      const req = http.get('http://localhost:11434/api/tags', (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          if (res.statusCode === 200) {
-            try {
-              const json = JSON.parse(data);
-              const models = json.models ? json.models.map(m => m.name) : [];
-              resolve(models);
-            } catch (e) {
-              reject(e);
-            }
-          } else {
-            reject(new Error(`HTTP ${res.statusCode}`));
-          }
-        });
-      });
-
-      req.on('error', reject);
-      req.setTimeout(5000, () => {
-        req.destroy();
-        reject(new Error('Timeout'));
-      });
-    });
-
-    res.json({ success: true, models: response });
-  } catch (error) {
-    console.error('Error fetching models:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch models' });
-  }
-});
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {

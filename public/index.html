@@ -33,6 +33,13 @@
                     <p>Upload a file or paste your text below</p>
                 </div>
 
+                <div class="model-selector">
+                    <label for="modelSelect">AI Model:</label>
+                    <select id="modelSelect" class="model-select">
+                        <option value="gemma3:4b">Loading models...</option>
+                    </select>
+                </div>
+
                 <!-- Tab Navigation -->
                 <div class="tab-navigation">
                     <button class="tab-btn active" data-tab="upload">
@@ -141,7 +148,7 @@
             <div class="loading-overlay" id="loadingOverlay" style="display: none;">
                 <div class="loading-spinner">
                     <div class="spinner"></div>
-                    <p>Processing with qwen3:latest...</p>
+                    <p>Processing with gemma3:4b...</p>
                     <span class="loading-subtext">This may take a moment</span>
                 </div>
             </div>
@@ -149,7 +156,7 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <p>Powered by <strong>Ollama</strong> & <strong>qwen3:latest</strong> | All processing happens locally on your machine</p>
+            <p>Powered by <strong>Ollama</strong> & <strong>gemma3:4b</strong> | All processing happens locally on your machine</p>
         </footer>
     </div>
 
