@@ -102,7 +102,7 @@ function handleFile(file) {
     
     // Read and display file content
     if (fileExt === '.xls' || fileExt === '.xlsx') {
-        fileContent.textContent = 'Excel file - content will be extracted as CSV format for processing.';
+        fileContent.textContent = 'Excel file - content will be extracted as XLSX format for processing.';
         dropzone.style.display = 'none';
         filePreview.style.display = 'block';
     } else {

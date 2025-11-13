@@ -31,81 +31,50 @@ const upload = multer({
 });
 
 // Helper function to call Ollama API
-async function callOllama(prompt, model = 'gemma3:4b', maxRetries = 3) {
-  const payload = { model, prompt, stream: false };
-  const data = JSON.stringify(payload);
-  const byteLen = Buffer.byteLength(data, 'utf8');
+async function callOllama(prompt, model = 'gemma3:4b', targetPort = 11434) {
+  return new Promise((resolve, reject) => {
+    const payload = { model: model, prompt: prompt, stream: false };
+    const data = JSON.stringify(payload);
+    const dataLength = Buffer.byteLength(data);
 
-  const agent = new http.Agent({ keepAlive: false });
-  const options = {
-    hostname: 'localhost',
-    port: 11434,
-    path: '/api/generate',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Accept': 'application/json',
-      'Content-Length': byteLen
-    },
-    agent,
-    timeout: 120000 // 120 seconds
-  };
+    const options = {
+      hostname: '127.0.0.1',
+      port: targetPort,
+      path: '/api/generate',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': dataLength
+      },
+      // no default timeout here; we'll set it on the request socket
+    };
 
-  let attempt = 0;
-  while (attempt < maxRetries) {
-    attempt++;
-    try {
-      const result = await new Promise((resolve, reject) => {
-        const req = http.request(options, (res) => {
-          let responseData = '';
-          res.setEncoding('utf8');
-
-          res.on('data', (chunk) => { responseData += chunk; });
-
-          res.on('end', () => {
-            // if non-2xx, include status code in message
-            if (res.statusCode >= 400) {
-              return reject(new Error(`Ollama HTTP ${res.statusCode}: ${responseData}`));
-            }
-            try {
-              const json = JSON.parse(responseData);
-              if (json && json.error) return reject(new Error(`Ollama error: ${json.error}`));
-              const reply = json.response ?? json.output ?? json.result ?? responseData;
-              if (!reply || (typeof reply === 'string' && reply.trim().length === 0)) {
-                return reject(new Error('AI model returned empty response'));
-              }
-              resolve(reply);
-            } catch (e) {
-              // If parse fails, still return raw response for debugging
-              return reject(new Error('Failed to parse Ollama response: ' + responseData));
-            }
-          });
-        });
-
-        req.on('timeout', () => {
-          req.destroy(new Error('Request to Ollama timed out'));
-        });
-
-        req.on('error', (err) => {
-          reject(new Error('Failed to connect to Ollama: ' + err.message));
-        });
-
-        req.write(data, 'utf8');
-        req.end();
+    const req = http.request(options, (res) => {
+      let responseData = '';
+      res.on('data', (chunk) => responseData += chunk);
+      res.on('end', () => {
+        try {
+          const jsonResponse = JSON.parse(responseData);
+          // Ollama sometimes nests response; adjust if needed
+          resolve(jsonResponse.response ?? jsonResponse);
+        } catch (err) {
+          return reject(new Error('Failed to parse Ollama response: ' + err.message));
+        }
       });
+    });
 
-      return result; // success
+    // Set socket timeout (e.g., 5 minutes)
+    req.setTimeout(5 * 60 * 1000, () => {
+      req.abort();
+    });
 
-    } catch (err) {
-      // If last attempt, rethrow; else wait and retry
-      console.error(`callOllama attempt ${attempt} failed: ${err.message}`);
-      if (attempt >= maxRetries) throw err;
-      // Exponential backoff
-      const delay = Math.min(2000 * Math.pow(2, attempt - 1), 20000);
-      await new Promise(r => setTimeout(r, delay));
-      // On next retry, continue loop
-    }
-  }
+    req.on('error', (error) => {
+      reject(new Error('Failed to connect to Ollama: ' + error.message));
+    });
+
+    req.write(data);
+    req.end();
+  });
 }
 
 // Route: Process text (JSON requests)
@@ -344,7 +313,14 @@ Return only the JSON array.`;
     const buf = xlsx.write(newWb, { bookType: 'xlsx', type: 'buffer' });
 
     // Save to file
-    const processedFilename = `processed-${Date.now()}-${originalName}`;
+    const now = new Date();
+    const datetime = now.getFullYear() +
+                     ('0' + (now.getMonth() + 1)).slice(-2) +
+                     ('0' + now.getDate()).slice(-2) + '-' +
+                     ('0' + now.getHours()).slice(-2) +
+                     ('0' + now.getMinutes()).slice(-2) +
+                     ('0' + now.getSeconds()).slice(-2);
+    const processedFilename = `${model.replace(/:/g, '')}-${datetime}-${originalName}`;
     const processedPath = path.join('downloads', processedFilename);
     fs.writeFileSync(processedPath, buf);
 
