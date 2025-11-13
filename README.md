@@ -136,6 +136,13 @@ Enter your own custom prompt for flexible processing.
 - Check Node.js version: `node --version`
 - Verify port 3001 is available
 
+## 📈 Recent Updates
+
+- **v1.1.0** - Switched to Gemma 3:4B model for improved performance
+- **Automation Scripts** - Added Python scripts for automated Ollama and server startup
+- **Code Improvements** - Simplified Ollama API integration and enhanced file processing
+- **UI Enhancements** - Updated Excel file processing display messages
+
 ## 🤝 Contributing
 
 1. Fork the repository
